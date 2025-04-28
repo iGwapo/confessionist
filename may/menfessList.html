@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Menfess Anonim</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+      color: #555;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #4CAF50;
+      color: white;
+      font-size: 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+      margin-top: 20px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .menfess-item {
+      background: #ffffff;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+    .menfess-item p {
+      margin: 8px 0;
+      font-size: 16px;
+      color: #333;
+    }
+    .menfess-item span.label {
+      font-weight: bold;
+      color: #555;
+    }
+    #searchBar {
+      margin-bottom: 20px;
+      padding: 10px;
+      width: 100%;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    p#noResult {
+      text-align: center;
+      color: #888;
+    }
+    .delete-button {
+      background: transparent;
+      border: none;
+      font-size: 20px;
+      color: red;
+      cursor: pointer;
+    }
+    .delete-button:hover {
+      color: darkred;
+    }
+    .edit-password {
+      margin-top: 10px;
+    }
+    .edit-password input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+    }
+    /* Popup Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+    }
+    .modal .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      width: 300px;
+      text-align: center;
+    }
+    .modal button {
+      margin-top: 15px;
+    }
+
+    /* Watermark / Credit MJ */
+    .watermark {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      font-size: 14px;
+      color: rgba(0, 0, 0, 0.4);
+      font-weight: bold;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+
+<div id="inputPage" class="container">
+  <h1>Kirim Menfess</h1>
+  <form id="menfessForm">
+    <label for="from">From:</label>
+    <input type="text" id="from" placeholder="Masukkan nama pengirim" required>
+
+    <label for="to">To:</label>
+    <input type="text" id="to" placeholder="Masukkan nama penerima" required>
+
+    <label for="message">Pesan:</label>
+    <textarea id="message" rows="5" placeholder="Tulis pesan menfess kamu..." required></textarea>
+
+    <button type="submit">Kirim</button>
+  </form>
+</div>
+
+<div id="menfessPage" class="container" style="display: none;">
+  <h1>Daftar Menfess</h1>
+  <input type="text" id="searchBar" placeholder="Cari berdasarkan pengirim atau penerima...">
+  <div id="menfessDisplay">
+    <!-- Daftar menfess akan tampil di sini -->
+  </div>
+  <button id="backButton">Kembali Menginput</button>
+</div>
+
+<!-- Modal untuk Verifikasi Admin -->
+<div id="passwordModal" class="modal">
+  <div class="container">
+    <h2>Masukkan Password Admin</h2>
+    <input type="password" id="adminPassword" placeholder="Password admin" />
+    <button id="verifyPasswordButton">Verifikasi</button>
+    <button id="cancelPasswordButton">Batal</button>
+  </div>
+</div>
+
+<!-- Watermark -->
+<div class="watermark">
+  MJ
+</div>
+
+<script>
+  const form = document.getElementById('menfessForm');
+  const inputPage = document.getElementById('inputPage');
+  const menfessPage = document.getElementById('menfessPage');
+  const display = document.getElementById('menfessDisplay');
+  const backButton = document.getElementById('backButton');
+  const searchBar = document.getElementById('searchBar');
+  const passwordModal = document.getElementById('passwordModal');
+  const adminPasswordInput = document.getElementById('adminPassword');
+  const verifyPasswordButton = document.getElementById('verifyPasswordButton');
+  const cancelPasswordButton = document.getElementById('cancelPasswordButton');
+
+  let menfessList = JSON.parse(localStorage.getItem('menfessList')) || [];
+  const adminPassword = 'kodokjumay';  // Ganti dengan password yang lebih aman jika perlu
+  let isAdminVerified = false;  // Menandakan apakah admin sudah terverifikasi
+
+  // Cek apakah pengguna adalah admin (admin harus memasukkan password untuk hapus)
+  function showMenfessList(filter = '') {
+    display.innerHTML = '';
+
+    const filteredList = menfessList.filter(item =>
+      item.from.toLowerCase().includes(filter.toLowerCase()) || item.to.toLowerCase().includes(filter.toLowerCase())
+    );
+
+    if (filteredList.length === 0) {
+      display.innerHTML = '<p id="noResult">Tidak ada menfess yang cocok.</p>';
+      return;
+    }
+
+    filteredList.forEach((item, index) => {
+      const menfessItem = document.createElement('div');
+      menfessItem.className = 'menfess-item';
+      menfessItem.innerHTML = `
+        <p><span class="label">From:</span> ${item.from}</p>
+        <p><span class="label">To:</span> ${item.to}</p>
+        <p><span class="label">Messages:</span> ${item.message}</p>
+        <button class="delete-button" onclick="deleteMenfess(${index})">&times;</button>
+      `;
+      display.appendChild(menfessItem);
+    });
+  }
+
+  function deleteMenfess(index) {
+    // Jika admin sudah terverifikasi, langsung hapus menfess
+    if (isAdminVerified) {
+      menfessList.splice(index, 1);
+      localStorage.setItem('menfessList', JSON.stringify(menfessList));
+      showMenfessList();  // Refresh daftar menfess
+      return;
+    }
+
+    // Tampilkan modal untuk memasukkan password jika admin belum terverifikasi
+    passwordModal.style.display = 'flex';
+
+    verifyPasswordButton.onclick = function() {
+      const enteredPassword = adminPasswordInput.value;
+
+      // Cek apakah password benar
+      if (enteredPassword === adminPassword) {
+        isAdminVerified = true;  // Tandai admin sudah terverifikasi
+        menfessList.splice(index, 1);  // Hapus menfess yang dipilih
+        localStorage.setItem('menfessList', JSON.stringify(menfessList));
+        showMenfessList();  // Refresh daftar menfess
+        passwordModal.style.display = 'none';
+      } else {
+        alert('Password salah!');
+      }
+    };
+
+    cancelPasswordButton.onclick = function() {
+      passwordModal.style.display = 'none';  // Menutup modal jika cancel
+    };
+  }
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const from = document.getElementById('from').value.trim();
+    const to = document.getElementById('to').value.trim();
+    const message = document.getElementById('message').value.trim();
+
+    if (from === '' || to === '' || message === '') return;
+
+    const newMenfess = { from, to, message };
+    menfessList.push(newMenfess);
+    localStorage.setItem('menfessList', JSON.stringify(menfessList));
+
+    showMenfessList();
+    form.reset();
+
+    inputPage.style.display = 'none';
+    menfessPage.style.display = 'block';
+  });
+
+  backButton.addEventListener('click', function() {
+    inputPage.style.display = 'block';
+    menfessPage.style.display = 'none';
+  });
+
+  searchBar.addEventListener('input', function() {
+    showMenfessList(searchBar.value);
+  });
+
+  // Tampilkan daftar menfess saat halaman dimuat
+  showMenfessList();
+</script>
+
+</body>
+</html>
